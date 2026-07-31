@@ -1,0 +1,28 @@
+# Node.js
+node_modules/
+npm-debug.log*
+
+# Build output
+exports/
+dist/
+.my-agent-tmp/
+
+# Rust / Tauri
+src-tauri/target/
+src-tauri/agent.conf
+
+# OS
+.DS_Store
+*.swp
+*.swo
+*~
+*.bak
+
+# IDE
+.vscode/
+.idea/
+*.iml
+
+# Environment
+.env
+.env.local

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<WixLocalization Culture="zh-cn" xmlns="http://schemas.microsoft.com/wix/2006/localization">
+  <String Id="LicenseAgreementDlgTitle">最终用户许可协议</String>
+  <String Id="LicenseAgreementDlgDescription">请阅读以下许可协议</String>
+  <String Id="WelcomeDlgTitle">欢迎安装 {ProductName}</String>
+  <String Id="WelcomeDlgDescription">安装程序将安装 {ProductName}，一个 AI Agent 构建工具。</String>
+  <String Id="InstallDirDlgTitle">选择安装位置</String>
+  <String Id="InstallDirDlgDescription">选择 {ProductName} 的安装目录</String>
+  <String Id="ProgressDlgTitle">正在安装</String>
+  <String Id="ProgressDlgDescriptionInstalling">正在安装 {ProductName}...</String>
+  <String Id="ProgressDlgDescriptionCompleted">安装完成</String>
+  <String Id="ExitDialogTitle">安装完成</String>
+  <String Id="ExitDialogDescription">{ProductName} 已成功安装。</String>
+  <String Id="ExitDialogDescription">感谢安装 {ProductName}！</String>
+  <String Id="ProductName">my-agent</String>
+  <String Id="ShortDescription">AI Agent 构建工具</String>
+  <String Id="LongDescription">使用 .conf 文件构建和运行 AI Agent</String>
+  <String Id="FeatureMainName">my-agent</String>
+  <String Id="FeatureMainDescription">my-agent 核心程序</String>
+  <String Id="ShortcutAppStartMenuName">my-agent</String>
+  <String Id="ShortcutDesktopName">my-agent</String>
+</WixLocalization>

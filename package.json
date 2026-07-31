@@ -1,0 +1,32 @@
+{
+  "name": "my-agent",
+  "version": "1.0.0",
+  "description": "Build and run AI agents from .conf files. Package as CLI executables. Export as Skill or MCP.",
+  "type": "module",
+  "bin": {
+    "my-agent": "./bin/my-agent.js"
+  },
+  "keywords": [
+    "agent",
+    "cli",
+    "ai",
+    "conf",
+    "mcp",
+    "skill",
+    "llm",
+    "openai"
+  ],
+  "license": "Apache-2.0",
+  "author": "my-agent",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/user/my-agent"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "commander": "^12.0.0",
+    "duck-duck-scrape": "^2.2.7"
+  }
+}
