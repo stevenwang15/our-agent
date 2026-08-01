@@ -1,10 +1,10 @@
 {
-  "name": "my-agent",
+  "name": "our-agent",
   "version": "1.0.0",
-  "description": "Build and run AI agents from .conf files. Package as CLI executables. Export as Skill or MCP.",
+  "description": "Write AI agents in .conf — run anywhere.",
   "type": "module",
   "bin": {
-    "my-agent": "./bin/my-agent.js"
+    "our-agent": "./bin/our-agent.js"
   },
   "keywords": [
     "agent",
@@ -14,17 +14,26 @@
     "mcp",
     "skill",
     "llm",
-    "openai"
+    "openai",
+    "anthropic",
+    "deepseek"
   ],
   "license": "Apache-2.0",
-  "author": "my-agent",
+  "author": "Steven",
   "repository": {
     "type": "git",
-    "url": "https://github.com/user/my-agent"
+    "url": "https://github.com/stevenwang15/our-agent"
   },
   "engines": {
     "node": ">=18.0.0"
   },
+  "files": [
+    "bin",
+    "src",
+    "examples",
+    "README.md",
+    "LICENSE"
+  ],
   "dependencies": {
     "commander": "^12.0.0",
     "duck-duck-scrape": "^2.2.7"

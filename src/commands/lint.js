@@ -1,6 +1,6 @@
-// my-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
+// our-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
 /**
- * my-agent lint <file.conf> - Validate .conf files and check for issues.
+ * our-agent lint <file.conf> - Validate .conf files and check for issues.
  */
 
 import { loadConf } from '../conf/parser.js';

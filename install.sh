@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# my-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
+# our-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
 # Installer for macOS / Linux
-# Usage: ./install.sh  (run from my-agent source directory)
+# Usage: ./install.sh  (run from our-agent source directory)
 
 set -euo pipefail
 
@@ -21,7 +21,7 @@ cd "$SCRIPT_DIR"
 
 echo ""
 echo "  ╔═══════════════════════════════════════╗"
-echo "  ║     my-agent CLI Installer            ║"
+echo "  ║     our-agent CLI Installer            ║"
 echo "  ╚═══════════════════════════════════════╝"
 echo ""
 
@@ -52,29 +52,29 @@ else
 fi
 
 # ---- Install globally ----
-log "Installing my-agent CLI globally..."
+log "Installing our-agent CLI globally..."
 npm install -g . --no-audit --no-fund --loglevel=error
 
 # ---- Verify ----
-INSTALLED="$(command -v my-agent || true)"
+INSTALLED="$(command -v our-agent || true)"
 if [ -z "$INSTALLED" ]; then
-  fail "Install failed: my-agent command not found after install."
+  fail "Install failed: our-agent command not found after install."
 fi
 
-VERSION="$(my-agent --version 2>/dev/null || true)"
-ok "Installed: my-agent v${VERSION:-unknown} ($INSTALLED)"
+VERSION="$(our-agent --version 2>/dev/null || true)"
+ok "Installed: our-agent v${VERSION:-unknown} ($INSTALLED)"
 
 echo ""
 echo "  🚀  Installation complete!"
 echo ""
 echo "  Quick start:"
-echo "    my-agent init               # Create a new agent"
-echo "    my-agent lint my.conf       # Check a .conf file"
-echo "    my-agent run my.conf        # Run an agent"
-echo "    my-agent export my.conf     # Export Skill / MCP"
-echo "    my-agent build my.conf      # Build executable"
-echo "    my-agent providers          # List LLM providers"
-echo "    my-agent --help             # Full help"
+echo "    our-agent init               # Create a new agent"
+echo "    our-agent lint my.conf       # Check a .conf file"
+echo "    our-agent run my.conf        # Run an agent"
+echo "    our-agent export my.conf     # Export Skill / MCP"
+echo "    our-agent build my.conf      # Build executable"
+echo "    our-agent providers          # List LLM providers"
+echo "    our-agent --help             # Full help"
 echo ""
 echo "  📁  Examples in: $SCRIPT_DIR/examples"
 echo ""

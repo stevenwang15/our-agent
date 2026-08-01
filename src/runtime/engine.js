@@ -1,4 +1,4 @@
-// my-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
+// our-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
 /**
  * Agent Engine - Executes agents defined in .conf files.
  * Supports: multi-provider, tools, sessions, structured output, chaining.
@@ -136,7 +136,7 @@ export class AgentEngine {
 
   // ---- Run a single prompt ----
   async runPrompt(userInput, history = [], onChunk = null) {
-    if (!this.apiKey) throw new Error('API key required. Use --key or MY_AGENT_KEY env.');
+    if (!this.apiKey) throw new Error('API key required. Use --key or OUR_AGENT_KEY env.');
 
     const { messages } = this._buildMessages(userInput, history);
 

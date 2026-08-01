@@ -1,4 +1,4 @@
-// my-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
+// our-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
 /**
  * Tool Execution System - Registry, built-in tools, and helper functions
  * for executing tools in response to LLM function calls.

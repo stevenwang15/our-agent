@@ -1,4 +1,4 @@
-// my-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
+// our-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
 /**
  * Session management - Save, list, and resume conversations.
  */
@@ -7,7 +7,7 @@ import { resolve, dirname } from 'path';
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } from 'fs';
 import { homedir } from 'os';
 
-const SESSION_DIR = resolve(homedir(), '.my-agent', 'sessions');
+const SESSION_DIR = resolve(homedir(), '.our-agent', 'sessions');
 
 function ensureDir() {
   if (!existsSync(SESSION_DIR)) {

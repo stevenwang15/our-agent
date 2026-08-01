@@ -1,4 +1,4 @@
-// my-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
+// our-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
 /**
  * .conf parser - Custom config format for describing AI agents.
  *

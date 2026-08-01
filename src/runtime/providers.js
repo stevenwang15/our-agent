@@ -1,6 +1,6 @@
-// my-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
+// our-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
 /**
- * Multi-model provider support for my-agent.
+ * Multi-model provider support for our-agent.
  * Supports OpenAI, Anthropic, Google, DeepSeek, Ollama, and OpenRouter.
  */
 

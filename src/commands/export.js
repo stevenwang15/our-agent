@@ -1,6 +1,6 @@
-// my-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
+// our-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
 /**
- * my-agent export <file.conf>
+ * our-agent export <file.conf>
  * Export an agent definition as a reusable Skill or MCP server.
  */
 
@@ -78,7 +78,7 @@ async function exportSkill(agentName, agentDesc, systemPrompt, conf, outputDir) 
   const skillFile = resolve(outputDir, `${safeName}.skill.json`);
 
   const skill = {
-    schema: 'my-agent/skill/v1',
+    schema: 'our-agent/skill/v1',
     name: safeName,
     displayName: agentName,
     description: agentDesc || `Agent: ${agentName}`,
@@ -109,11 +109,11 @@ async function exportSkill(agentName, agentDesc, systemPrompt, conf, outputDir) 
     } : undefined,
 
     usage: {
-      runtime: 'my-agent run <file.conf>',
+      runtime: 'our-agent run <file.conf>',
       environment: {
-        MY_AGENT_KEY: 'Your API key',
-        MY_AGENT_BASE_URL: 'Optional: API base URL override',
-        MY_AGENT_MODEL: 'Optional: model override',
+        OUR_AGENT_KEY: 'Your API key',
+        OUR_AGENT_BASE_URL: 'Optional: API base URL override',
+        OUR_AGENT_MODEL: 'Optional: model override',
       },
     },
   };
@@ -128,7 +128,7 @@ async function exportMCP(agentName, agentDesc, systemPrompt, conf, outputDir) {
   const mcpScript = resolve(outputDir, `${safeName}-mcp-server.js`);
 
   const mcpManifest = {
-    schema: 'my-agent/mcp/v1',
+    schema: 'our-agent/mcp/v1',
     name: safeName,
     displayName: `${agentName} MCP`,
     description: agentDesc || `MCP server wrapping agent: ${agentName}`,
@@ -138,9 +138,9 @@ async function exportMCP(agentName, agentDesc, systemPrompt, conf, outputDir) {
       command: 'node',
       args: [safeName + '-mcp-server.js'],
       env: {
-        MY_AGENT_KEY: '',
-        MY_AGENT_BASE_URL: '',
-        MY_AGENT_MODEL: '',
+        OUR_AGENT_KEY: '',
+        OUR_AGENT_BASE_URL: '',
+        OUR_AGENT_MODEL: '',
       },
     },
 
@@ -166,14 +166,14 @@ async function exportMCP(agentName, agentDesc, systemPrompt, conf, outputDir) {
   const temperature = smartGet(conf, 'settings', 'temperature', 0.7);
 
   const serverScript = `#!/usr/bin/env node
-// my-agent MCP Server for "${agentName}"
+// our-agent MCP Server for "${agentName}"
 
 import { createInterface } from 'readline';
 
 const SYSTEM_PROMPT = ${JSON.stringify(systemPrompt)};
-const API_KEY = process.env.MY_AGENT_KEY || '';
-const BASE_URL = process.env.MY_AGENT_BASE_URL || 'https://api.openai.com/v1';
-const MODEL = process.env.MY_AGENT_MODEL || 'gpt-4o';
+const API_KEY = process.env.OUR_AGENT_KEY || '';
+const BASE_URL = process.env.OUR_AGENT_BASE_URL || 'https://api.openai.com/v1';
+const MODEL = process.env.OUR_AGENT_MODEL || 'gpt-4o';
 
 const rl = createInterface({ input: process.stdin });
 

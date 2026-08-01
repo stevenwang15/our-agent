@@ -5,11 +5,7 @@ npm-debug.log*
 # Build output
 exports/
 dist/
-.my-agent-tmp/
-
-# Rust / Tauri
-src-tauri/target/
-src-tauri/agent.conf
+.our-agent-tmp/
 
 # OS
 .DS_Store

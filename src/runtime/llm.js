@@ -1,4 +1,4 @@
-// my-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
+// our-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
 /**
  * LLM Client - Communicates with OpenAI-compatible APIs.
  * Keys are supplied at runtime by the user, never stored in .conf files.

@@ -1,6 +1,6 @@
-// my-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
+// our-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
 /**
- * my-agent build <file.conf>
+ * our-agent build <file.conf>
  * Package an agent into a standalone executable.
  *
  * Uses the system's Node.js (via pkg or ncc) to create cross-platform binaries.
@@ -9,7 +9,7 @@
 
 import { loadConf } from '../conf/parser.js';
 import { resolve, basename, dirname } from 'path';
-import { existsSync, mkdirSync, writeFileSync, copyFileSync, readFileSync, readdirSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, copyFileSync, readFileSync } from 'fs';
 import { execSync } from 'child_process';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
@@ -20,12 +20,6 @@ const TARGETS = {
   'win-x64':     { node: 'node18-win-x64',     ext: '.exe', type: 'PE (EXE)' },
   'mac-x64':     { node: 'node18-macos-x64',   ext: '',     type: 'Mach-O' },
   'mac-arm64':   { node: 'node18-macos-arm64', ext: '',     type: 'Mach-O' },
-};
-
-const GUI_TARGETS = {
-  'msi':  { type: 'Windows Installer',  platform: 'win' },
-  'app':  { type: 'macOS App Bundle',   platform: 'mac' },
-  'dmg':  { type: 'macOS Disk Image',   platform: 'mac' },
 };
 
 export async function buildCommand(confPath, options) {
@@ -46,13 +40,7 @@ export async function buildCommand(confPath, options) {
     mkdirSync(outputDir, { recursive: true });
   }
 
-  const isGUI = options.gui;
-
-  if (isGUI) {
-    await buildGUI(confPath, conf, agentName, outputDir, options);
-  } else {
-    await buildCLI(confPath, conf, agentName, outputDir, options);
-  }
+  await buildCLI(confPath, conf, agentName, outputDir, options);
 }
 
 async function buildCLI(confPath, conf, agentName, outputDir, options) {
@@ -80,7 +68,7 @@ async function buildCLI(confPath, conf, agentName, outputDir, options) {
 
   // Generate a standalone runner script that embeds the conf path
   const buildId = randomBytes(4).toString('hex');
-  const tmpDir = resolve(tmpdir(), `my-agent-build-${buildId}`);
+  const tmpDir = resolve(tmpdir(), `our-agent-build-${buildId}`);
   mkdirSync(tmpDir, { recursive: true });
 
   const confData = readFileSync(confPath, 'utf-8');
@@ -92,9 +80,9 @@ const confData = ${JSON.stringify(confData)};
 const { parseConf } = require('./parser.cjs');
 const conf = parseConf(confData, '${basename(confPath)}');
 
-const apiKey = process.env.MY_AGENT_KEY || '';
-const baseURL = conf.get('settings', 'base_url', process.env.MY_AGENT_BASE_URL || 'https://api.openai.com/v1');
-const model = conf.get('settings', 'model', process.env.MY_AGENT_MODEL || 'gpt-4o');
+const apiKey = process.env.OUR_AGENT_KEY || '';
+const baseURL = conf.get('settings', 'base_url', process.env.OUR_AGENT_BASE_URL || 'https://api.openai.com/v1');
+const model = conf.get('settings', 'model', process.env.OUR_AGENT_MODEL || 'gpt-4o');
 
 async function main() {
   const { AgentEngine } = require('./engine.cjs');
@@ -104,11 +92,11 @@ async function main() {
     const key = await new Promise(res => rl.question('🔑 Enter your API key: ', res));
     rl.close();
     if (!key) { console.error('API key required'); process.exit(1); }
-    process.env.MY_AGENT_KEY = key;
+    process.env.OUR_AGENT_KEY = key;
   }
 
   const engine = new AgentEngine(conf, {
-    apiKey: apiKey || process.env.MY_AGENT_KEY,
+    apiKey: apiKey || process.env.OUR_AGENT_KEY,
     baseURL,
     model,
   });
@@ -245,7 +233,7 @@ module.exports = { LLMClient };
       const mainScript = `#!/usr/bin/env node
 'use strict';
 // Standalone agent - embed conf and dependencies
-process.env.MY_AGENT_STANDALONE = '1';
+process.env.OUR_AGENT_STANDALONE = '1';
 const path = require('path');
 const fs = require('fs');
 // Adjust module paths to find local deps
@@ -291,7 +279,7 @@ try {
       console.log(`     node "${resolve(fallbackDir, 'index.js')}"`);
       console.log(`  ℹ️  Or install pkg with a proxy to build true standalone binaries:`);
       console.log(`     npm install -g pkg`);
-      console.log(`     HTTPS_PROXY=http://your-proxy:port my-agent build ...`);
+      console.log(`     HTTPS_PROXY=http://your-proxy:port our-agent build ...`);
     }
 
     // Build for additional targets if --all is specified (only with pkg)
@@ -320,88 +308,3 @@ try {
   }
 }
 
-async function buildGUI(confPath, conf, agentName, outputDir, options) {
-  const format = options.format || 'app';
-  const formats = format === 'all' ? ['app', 'msi'] : [format];
-  const buildDir = resolve(outputDir, `my-agent-gui-${agentName}`);
-  if (!existsSync(buildDir)) mkdirSync(buildDir, { recursive: true });
-
-  const confData = readFileSync(confPath, 'utf-8');
-  const srcDir = dirname(new URL(import.meta.url).pathname);
-  const projectRoot = resolve(srcDir, '..', '..');
-
-  console.log(`\n  🖥️  Building GUI App via Tauri for ${format}...`);
-
-  // ---- Step 1: Copy .conf into src-tauri ----
-  writeFileSync(resolve(projectRoot, 'src-tauri', 'agent.conf'), confData);
-
-  // ---- Step 2: Update tauri product name ----
-  const tauriConfPath = resolve(projectRoot, 'src-tauri', 'tauri.conf.json');
-  const tauriConf = JSON.parse(readFileSync(tauriConfPath, 'utf-8'));
-  tauriConf.package.productName = agentName;
-  writeFileSync(tauriConfPath, JSON.stringify(tauriConf, null, 2));
-
-  // ---- Step 3: Run cargo tauri build ----
-  const cwd = process.cwd();
-  process.chdir(resolve(projectRoot, 'src-tauri'));
-
-  let built = false;
-
-  for (const f of formats) {
-    try {
-      console.log(`  Building ${f}...`);
-      if (f === 'app' || f === 'dmg') {
-        const bundleType = f === 'dmg' ? 'dmg' : 'none';
-        execSync(`cargo tauri build --bundles ${bundleType}`, {
-          stdio: 'inherit',
-          timeout: 600000, // 10 min for first build
-          env: { ...process.env },
-        });
-
-        // Find the built .app in target/release/bundle/
-        const bundleDir = resolve(projectRoot, 'src-tauri', 'target', 'release', 'bundle', 'macos');
-        if (existsSync(bundleDir)) {
-          const items = readdirSync(bundleDir);
-          const appBundle = items.find(i => i.endsWith('.app'));
-          if (appBundle) {
-            const dest = resolve(buildDir, appBundle);
-            execSync(`cp -R "${resolve(bundleDir, appBundle)}" "${dest}"`);
-            console.log(`  ✅ Built: ${dest}`);
-            built = true;
-          }
-        }
-      } else if (f === 'msi') {
-        if (process.platform === 'win32') {
-          execSync('cargo tauri build --bundles msi', {
-            stdio: 'inherit',
-            timeout: 600000,
-          });
-          const bundleDir = resolve(projectRoot, 'src-tauri', 'target', 'release', 'bundle', 'msi');
-          if (existsSync(bundleDir)) {
-            execSync(`cp -R "${bundleDir}"/*.msi "${buildDir}/"`);
-            console.log(`  ✅ Built .msi in: ${buildDir}`);
-            built = true;
-          }
-        } else {
-          console.log(`  ⚠️  Cannot build .msi on ${process.platform}.`);
-          console.log(`  ℹ️  On Windows, run from my-agent source directory:`);
-          console.log(`     cd src-tauri && cargo tauri build --bundles msi`);
-        }
-      }
-    } catch (e) {
-      console.log(`  ⚠️  ${f} build failed: ${e.message}`);
-    }
-  }
-
-  if (!built) {
-    console.log(`\n  📁 Tauri project is ready at: ${resolve(projectRoot, 'src-tauri')}`);
-    console.log(`  ℹ️  To build manually:\n`);
-    console.log(`     cd "${resolve(projectRoot, 'src-tauri')}"`);
-    console.log(`     cargo tauri build --bundles dmg   # macOS .app`);
-    console.log(`     # Windows: cargo tauri build --bundles msi\n`);
-    console.log(`  ℹ️  First build is slow (compiling Rust + downloading crates).`);
-    console.log(`     Subsequent builds are faster (incremental compilation).`);
-  }
-
-  process.chdir(cwd);
-}

@@ -1,6 +1,6 @@
-// my-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
+// our-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
 /**
- * my-agent run <file.conf> - Run an agent from a .conf file.
+ * our-agent run <file.conf> - Run an agent from a .conf file.
  * Supports: multi-provider, tools, variable substitution, JSON mode.
  */
 
@@ -23,7 +23,7 @@ export async function runCommand(confPath, options) {
   substituteConf(conf);
 
   // Get API key: CLI arg > env var > prompt
-  let apiKey = options.key || process.env.MY_AGENT_KEY;
+  let apiKey = options.key || process.env.OUR_AGENT_KEY;
   if (!apiKey && options.interactive !== false) {
     const rl = (await import('readline/promises')).createInterface({
       input: process.stdin, output: process.stdout,
@@ -33,7 +33,7 @@ export async function runCommand(confPath, options) {
   }
 
   if (!apiKey) {
-    console.error('❌ API key is required. Use --key, MY_AGENT_KEY env, or run interactively.');
+    console.error('❌ API key is required. Use --key, OUR_AGENT_KEY env, or run interactively.');
     process.exit(1);
   }
 

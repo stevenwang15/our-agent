@@ -1,4 +1,4 @@
-// my-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
+// our-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
 /**
  * Variable substitution for .conf files.
  * Supports: ${ENV_VAR}, ${ENV_VAR:-default}, ${ENV_VAR:?error message}

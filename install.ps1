@@ -1,6 +1,6 @@
-# my-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
+# our-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
 # Installer for Windows (PowerShell)
-# Usage: .\install.ps1  (run from my-agent source directory)
+# Usage: .\install.ps1  (run from our-agent source directory)
 
 $ErrorActionPreference = "Stop"
 
@@ -11,7 +11,7 @@ function Fail($msg)  { Write-Host "FAIL $msg" -ForegroundColor Red; exit 1 }
 
 Write-Host ""
 Write-Host "  +-----------------------------------+"
-Write-Host "  |      my-agent CLI Installer       |"
+Write-Host "  |      our-agent CLI Installer       |"
 Write-Host "  +-----------------------------------+"
 Write-Host ""
 
@@ -42,27 +42,27 @@ if (-not (Test-Path "node_modules")) {
 } else { Ok "Dependencies present" }
 
 # ---- global install ----
-Step "Installing my-agent CLI globally..."
+Step "Installing our-agent CLI globally..."
 & npm install -g . --no-audit --no-fund --loglevel=error
 
 # ---- verify ----
-$where = Get-Command my-agent -ErrorAction SilentlyContinue
-if (-not $where) { Fail "Install failed: my-agent command not found." }
+$where = Get-Command our-agent -ErrorAction SilentlyContinue
+if (-not $where) { Fail "Install failed: our-agent command not found." }
 
-try { $ver = & my-agent --version 2>$null } catch { $ver = "?" }
-Ok "my-agent v$ver ($($where.Source))"
+try { $ver = & our-agent --version 2>$null } catch { $ver = "?" }
+Ok "our-agent v$ver ($($where.Source))"
 
 Write-Host ""
 Write-Host "  Installation complete!" -ForegroundColor Green
 Write-Host ""
 Write-Host "  Quick start:"
-Write-Host "    my-agent init               # Create a new agent"
-Write-Host "    my-agent lint my.conf       # Check a .conf file"
-Write-Host "    my-agent run my.conf        # Run an agent"
-Write-Host "    my-agent export my.conf     # Export Skill / MCP"
-Write-Host "    my-agent build my.conf      # Build executable"
-Write-Host "    my-agent providers          # List LLM providers"
-Write-Host "    my-agent --help             # Full help"
+Write-Host "    our-agent init               # Create a new agent"
+Write-Host "    our-agent lint my.conf       # Check a .conf file"
+Write-Host "    our-agent run my.conf        # Run an agent"
+Write-Host "    our-agent export my.conf     # Export Skill / MCP"
+Write-Host "    our-agent build my.conf      # Build executable"
+Write-Host "    our-agent providers          # List LLM providers"
+Write-Host "    our-agent --help             # Full help"
 Write-Host ""
 Write-Host "  Examples in: $SCRIPT_DIR\examples"
 Write-Host ""

@@ -1,16 +1,15 @@
 #!/usr/bin/env node
-// my-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
+// our-agent - (c) 2026 Apache-2.0 - See LICENSE file for details
 
 /**
- * my-agent CLI - Build and run AI agents from .conf files
+ * our-agent CLI - Build and run AI agents from .conf files
  *
  * Usage:
- *   my-agent run <file.conf>     Run an agent (multi-provider, tools)
- *   my-agent init [name]         Scaffold a new agent interactively
- *   my-agent lint <file.conf>    Validate .conf file
- *   my-agent build <file.conf>   Package as executable
- *   my-agent export <file.conf>  Export as Skill or MCP
- *   my-agent gui [file.conf]    Launch modern GUI
+ *   our-agent run <file.conf>     Run an agent (multi-provider, tools)
+ *   our-agent init [name]         Scaffold a new agent interactively
+ *   our-agent lint <file.conf>    Validate .conf file
+ *   our-agent build <file.conf>   Package as executable
+ *   our-agent export <file.conf>  Export as Skill or MCP
  */
 
 import { program } from 'commander';
@@ -29,7 +28,7 @@ function src(...parts) {
 }
 
 program
-  .name('my-agent')
+  .name('our-agent')
   .description('Build and run AI agents from .conf files')
   .version(pkg.version);
 
@@ -62,7 +61,7 @@ program
   .command('run')
   .description('Run an agent from a .conf file')
   .argument('<file>', 'Path to .conf file')
-  .option('-k, --key <key>', 'API key (or use MY_AGENT_KEY env)')
+  .option('-k, --key <key>', 'API key (or use OUR_AGENT_KEY env)')
   .option('-m, --model <model>', 'Model override')
   .option('-b, --base-url <url>', 'API base URL override')
   .option('-p, --provider <provider>', 'LLM provider (openai, anthropic, google, deepseek, ollama, openrouter)')

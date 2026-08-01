@@ -1,10 +1,11 @@
 <div align="center">
-  <h1>my-agent</h1>
+  <h1>our-agent</h1>
   <p><strong>Write AI agents in <code>.conf</code> — run anywhere.</strong></p>
   <p>
     <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache%202.0-blue.svg" alt="License"></a>
     <img src="https://img.shields.io/badge/node-%3E%3D18-brightgreen" alt="Node">
     <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Windows%20%7C%20Linux-lightgrey" alt="Platform">
+    <a href="https://www.npmjs.com/package/our-agent"><img src="https://img.shields.io/npm/v/our-agent" alt="npm"></a>
   </p>
 </div>
 
@@ -13,9 +14,9 @@
 ## Overview
 
 ```
-my-agent run agent.conf          # CLI interactive
-my-agent build agent.conf        # Package as executable
-my-agent export agent.conf       # Export as Skill / MCP
+our-agent run agent.conf          # CLI interactive
+our-agent build agent.conf        # Package as executable
+our-agent export agent.conf       # Export as Skill / MCP
 ```
 
 Write a `.conf` file to define your AI agent. One config, many runtimes.
@@ -23,15 +24,17 @@ Write a `.conf` file to define your AI agent. One config, many runtimes.
 ## Quick Start
 
 ```bash
-git clone <repo> && cd my-agent
-./install.sh          # macOS / Linux
-# .\install.ps1       # Windows (PowerShell)
+npm install -g our-agent          # Install via npm
+# or from source:
+# git clone https://github.com/stevenwang15/our-agent && cd our-agent
+# ./install.sh                    # macOS / Linux
+# .\install.ps1                   # Windows (PowerShell)
 
 # Set your API key
-export MY_AGENT_KEY="sk-your-key"
+export OUR_AGENT_KEY="sk-your-key"
 
 # Run an example
-my-agent run examples/translator.conf
+our-agent run examples/translator.conf
 ```
 
 ## .conf Format
@@ -95,42 +98,42 @@ Key rule: **never store API keys, models, or base URLs in `.conf`** — these ar
 
 ```bash
 # Interactive mode
-my-agent run my-agent.conf
+our-agent run agent.conf
 
 # One-shot prompt
-my-agent run my-agent.conf -P "Translate: Hello World"
+our-agent run agent.conf -P "Translate: Hello World"
 
 # Custom provider
-my-agent run my-agent.conf --provider deepseek
-my-agent run my-agent.conf --provider ollama --base-url http://localhost:11434/v1
+our-agent run agent.conf --provider deepseek
+our-agent run agent.conf --provider ollama --base-url http://localhost:11434/v1
 
 # With env vars (don't hardcode in .conf)
-MY_AGENT_KEY=sk-xxx my-agent run my-agent.conf
+OUR_AGENT_KEY=sk-xxx our-agent run agent.conf
 ```
 
 ### Build Executable
 
 ```bash
 # Build for current platform
-my-agent build my-agent.conf -o ./dist
+our-agent build agent.conf -o ./dist
 
 # Build for specific target
-my-agent build my-agent.conf -t win-x64 -o ./dist
-my-agent build my-agent.conf -t linux-x64 -o ./dist
-my-agent build my-agent.conf -t mac-arm64 -o ./dist
+our-agent build agent.conf -t win-x64 -o ./dist
+our-agent build agent.conf -t linux-x64 -o ./dist
+our-agent build agent.conf -t mac-arm64 -o ./dist
 ```
 
 ### Export
 
 ```bash
 # Export as Skill
-my-agent export my-agent.conf -f skill -o ./exports
+our-agent export agent.conf -f skill -o ./exports
 
 # Export as MCP server
-my-agent export my-agent.conf -f mcp -o ./exports
+our-agent export agent.conf -f mcp -o ./exports
 
 # Export all formats
-my-agent export my-agent.conf -o ./exports
+our-agent export agent.conf -o ./exports
 ```
 
 ## Supported Providers
@@ -157,24 +160,30 @@ my-agent export my-agent.conf -o ./exports
 
 ## Installation
 
+### From npm (recommended)
+
+```bash
+npm install -g our-agent
+```
+
 ### From source (macOS / Linux)
 
 ```bash
-git clone <repo> && cd my-agent
+git clone https://github.com/stevenwang15/our-agent && cd our-agent
 ./install.sh
 ```
 
 ### From source (Windows)
 
 ```powershell
-git clone <repo>; cd my-agent
+git clone https://github.com/stevenwang15/our-agent; cd our-agent
 .\install.ps1
 ```
 
 ### Manual
 
 ```bash
-git clone <repo> && cd my-agent
+git clone https://github.com/stevenwang15/our-agent && cd our-agent
 npm install
 npm install -g .
 ```
@@ -182,23 +191,23 @@ npm install -g .
 ### Uninstall
 
 ```bash
-./uninstall.sh        # macOS / Linux
-# npm uninstall -g my-agent
+npm uninstall -g our-agent
+# or: ./uninstall.sh        # macOS / Linux
 ```
 
 ## Project Structure
 
 ```
-my-agent/
-├── bin/my-agent.js               # CLI entry point
+our-agent/
+├── bin/our-agent.js           # CLI entry point
 ├── src/
-│   ├── conf/parser.js            # .conf parser
-│   ├── runtime/                   # Engine, LLM, tools, session
-│   └── commands/                  # CLI command implementations
-├── examples/                     # Sample .conf files
-├── install.sh / install.ps1      # Install scripts
-├── uninstall.sh                  # Uninstall script
-└── LICENSE                       # Apache 2.0
+│   ├── conf/parser.js         # .conf parser
+│   ├── runtime/               # Engine, LLM, tools, session
+│   └── commands/              # CLI command implementations
+├── examples/                  # Sample .conf files
+├── install.sh / install.ps1   # Install scripts
+├── uninstall.sh               # Uninstall script
+└── LICENSE                    # Apache 2.0
 ```
 
 ## Why .conf?
