@@ -6,6 +6,11 @@
   "bin": {
     "our-agent": "./bin/our-agent.js"
   },
+  "scripts": {
+    "test": "node --test test/",
+    "lint": "node scripts/lint.mjs",
+    "verify": "npm run lint && npm test"
+  },
   "keywords": [
     "agent",
     "cli",

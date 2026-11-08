@@ -204,11 +204,40 @@ our-agent/
 │   ├── conf/parser.js         # .conf parser
 │   ├── runtime/               # Engine, LLM, tools, session
 │   └── commands/              # CLI command implementations
+├── test/                      # node:test suites (parser, variables)
+├── scripts/lint.mjs           # cross-platform syntax gate
 ├── examples/                  # Sample .conf files
 ├── install.sh / install.ps1   # Install scripts
 ├── uninstall.sh               # Uninstall script
 └── LICENSE                    # Apache 2.0
 ```
+
+## Development
+
+```bash
+npm run verify     # syntax gate + unit tests
+npm test           # node:test suites only
+npm run lint       # node --check over bin/, src/, test/
+```
+
+The tests need no dependencies and no network: they cover the `.conf` parser and
+variable substitution, which sit under every command (`run`, `build`, `lint`,
+`export`). CI runs the same three commands on Node 20 and 22.
+
+**Stricter parsing.** The parser used to accept malformed input silently, which
+is the worst failure mode for a config file — you get a wrong agent and no
+complaint. These are now errors, reported with file/line/column:
+
+| Input | Before | Now |
+| :--- | :--- | :--- |
+| `k = "unclosed` | value became `"unclosed` | `ParseError` |
+| `k = """unclosed` | string swallowed to EOF | `ParseError` |
+| `[unclosed` | section name taken to EOF | `ParseError` |
+| `[]` | section named `""` | `ParseError` |
+| stray `}` at top level | ignored | `ParseError` |
+
+`ParseError` is now exported, so callers can catch it by type instead of
+matching on message text.
 
 ## Why .conf?
 

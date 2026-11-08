@@ -148,9 +148,10 @@ export class ConfDocument {
   }
 }
 
-class ParseError extends Error {
+export class ParseError extends Error {
   constructor(message, pos) {
     super(`${pos.file}:${pos.line}:${pos.col}: ${message}`);
+    this.name = 'ParseError';
     this.pos = pos;
   }
 }
@@ -219,15 +220,21 @@ export function parseConf(text, filePath = '<string>') {
       }
 
       // End of brace block
-      if (ch === '}') { next(); return; }
+      if (ch === '}') {
+        if (currentSection === '_root') error('Unexpected "}" outside of any block');
+        next();
+        return;
+      }
 
       // Bracket section header: [section]
       if (ch === '[') {
         let secName = '';
         next();
         while (ch !== ']' && i < text.length) { secName += ch; next(); }
-        if (ch === ']') next();
+        if (ch !== ']') error('Unterminated section header, expected "]"');
+        next();
         currentSection = secName.trim();
+        if (!currentSection) error('Empty section name');
         parseFile(currentSection);
         continue;
       }
@@ -276,14 +283,17 @@ export function parseConf(text, filePath = '<string>') {
           // Triple-quoted string
           next(); next(); next(); // skip """
           valStr = '';
+          let tripleClosed = false;
           while (i < text.length) {
             if (ch === '"' && peek() === '"' && text[i+1] === '"') {
               next(); next(); next(); // skip """
+              tripleClosed = true;
               break;
             }
             valStr += ch;
             next();
           }
+          if (!tripleClosed) error('Unterminated triple-quoted string');
           // Trim leading/trailing newline
           if (valStr.startsWith('\n')) valStr = valStr.slice(1);
           if (valStr.endsWith('\n')) valStr = valStr.slice(0, -1);
@@ -313,6 +323,10 @@ export function parseConf(text, filePath = '<string>') {
             valStr += ch;
             next();
           }
+        }
+
+        if (inQuote) {
+          error(`Unterminated ${quoteChar === '"' ? 'double' : 'single'}-quoted string`);
         }
 
         valStr = valStr.trim();
