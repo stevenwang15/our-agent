@@ -134,6 +134,33 @@ describe('malformed input', () => {
   });
 });
 
+describe('trailing comments', () => {
+  test('a # comment after a value is stripped', () => {
+    const doc = parseConf('[a]\nk = "v" # trailing comment\n');
+    assert.equal(doc.get('a', 'k'), 'v');
+  });
+
+  test('a // comment after an unquoted value is stripped', () => {
+    const doc = parseConf('[a]\nk = 42 // the answer\n');
+    assert.equal(doc.get('a', 'k'), 42);
+  });
+
+  test('a leading # stays part of the value (colors, tags)', () => {
+    const doc = parseConf('[ui]\ncolor = #22c55e\n');
+    assert.equal(doc.get('ui', 'color'), '#22c55e');
+  });
+
+  test('a // inside a URL is not a comment', () => {
+    const doc = parseConf('[settings]\nbase_url = https://api.example.com/v1\n');
+    assert.equal(doc.get('settings', 'base_url'), 'https://api.example.com/v1');
+  });
+
+  test('comments inside quoted strings are preserved', () => {
+    const doc = parseConf('[a]\nk = "value # not a comment"\n');
+    assert.equal(doc.get('a', 'k'), 'value # not a comment');
+  });
+});
+
 describe('variable substitution', () => {
   test('a plain reference resolves from the environment', () => {
     process.env.OUR_AGENT_TEST_VAR = 'from-env';

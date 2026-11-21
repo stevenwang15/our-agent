@@ -26,11 +26,14 @@ export function saveSession(agentName, messages, metadata = {}) {
     agent: agentName,
     created: new Date().toISOString(),
     updated: new Date().toISOString(),
-    messages: messages.map(m => ({
-      role: m.role,
-      content: m.content?.slice(0, 200) + (m.content?.length > 200 ? '...' : ''),
-      contentFull: m.content,
-    })),
+    messages: messages.map(m => {
+      const text = m.content ?? '';
+      return {
+        role: m.role,
+        content: text.slice(0, 200) + (text.length > 200 ? '...' : ''),
+        contentFull: m.content,
+      };
+    }),
     metadata,
     messageCount: messages.length,
   };

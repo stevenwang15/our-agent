@@ -116,4 +116,12 @@ program
     }
   });
 
-program.parse(process.argv);
+// parseAsync (not parse): command actions are async, and any rejection —
+// e.g. a ParseError from a malformed .conf — should surface as a one-line
+// message instead of a Node stack trace.
+try {
+  await program.parseAsync(process.argv);
+} catch (e) {
+  console.error(`\n❌ ${e.message}\n`);
+  process.exit(1);
+}

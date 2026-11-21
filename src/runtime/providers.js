@@ -36,7 +36,9 @@ function jsonHeaders(extra = {}) {
 async function throwOnError(response) {
   if (response.ok) return;
   const body = await response.text().catch(() => 'Unknown error');
-  throw new Error(`API error ${response.status} from ${response.url}: ${body}`);
+  // Never echo credentials that may appear in the URL (e.g. ?key=...)
+  const safeUrl = String(response.url || '').replace(/([?&](?:key|api_key|apikey)=)[^&]*/gi, '$1***');
+  throw new Error(`API error ${response.status} from ${safeUrl}: ${body}`);
 }
 
 // ---------------------------------------------------------------------------
@@ -53,6 +55,7 @@ async function chatOpenAI(baseURL, apiKey, messages, options, onChunk) {
   const stream = !!onChunk;
 
   const body = { model, messages, max_tokens: maxTokens, temperature, stream };
+  if (options.jsonMode) body.response_format = { type: 'json_object' };
 
   const headers = { 'Content-Type': 'application/json' };
   if (apiKey) headers['Authorization'] = `Bearer ${apiKey}`;
@@ -128,14 +131,15 @@ async function chatGoogle(baseURL, apiKey, messages, options, onChunk) {
     generationConfig: { maxOutputTokens: maxTokens, temperature },
   };
 
-  const sep = baseURL.includes('?') ? '&' : '?';
-  const ep = `${baseURL}/models/${model}:streamGenerateContent${sep}key=${apiKey}`;
-  const nonStreamEp = `${baseURL}/models/${model}:generateContent${sep}key=${apiKey}`;
+  // API key goes in a header, never the URL — a URL ends up in error messages
+  const headers = jsonHeaders(apiKey ? { 'x-goog-api-key': apiKey } : {});
+  const ep = `${baseURL}/models/${model}:streamGenerateContent`;
+  const nonStreamEp = `${baseURL}/models/${model}:generateContent`;
 
   if (stream) {
     const res = await fetch(ep, {
       method: 'POST',
-      headers: jsonHeaders(),
+      headers,
       body: JSON.stringify(body),
     });
     await throwOnError(res);
@@ -144,7 +148,7 @@ async function chatGoogle(baseURL, apiKey, messages, options, onChunk) {
 
   const res = await fetch(nonStreamEp, {
     method: 'POST',
-    headers: jsonHeaders(),
+    headers,
     body: JSON.stringify(body),
   });
   await throwOnError(res);
@@ -288,8 +292,12 @@ export class LLMFactory {
    */
   static getProviderConfig(provider) {
     const cfg = PROVIDERS[provider];
-    if (!cfg) throw new Error(`Unsupported provider: ${provider}. Use listProviders() to see available options.`);
-    return { ...cfg };
+    if (!cfg) {
+      throw new Error(`Unsupported provider: ${provider}. Available: ${Object.keys(PROVIDERS).join(', ')}.`);
+    }
+    // defaultModel alias: callers (engine banner, describe) read defaultModel
+    // while the table stores the model under `model`
+    return { ...cfg, defaultModel: cfg.model };
   }
 
   /**
@@ -298,14 +306,19 @@ export class LLMFactory {
    * @param {string}   provider  - Provider name.
    * @param {string}   apiKey    - API key (may be empty for Ollama).
    * @param {object[]} messages  - Array of { role, content }.
-   * @param {object}   [options] - { model?, maxTokens?, temperature? }.
+   * @param {object}   [options] - { model?, baseURL?, maxTokens?, temperature?, jsonMode? }.
    * @param {function} [onChunk] - Callback receiving text deltas when streaming.
    * @returns {Promise<string>} Full response text.
    */
   static async chat(provider, apiKey, messages, options = {}, onChunk = null) {
     const cfg = LLMFactory.getProviderConfig(provider);
-    const baseURL = cfg.baseURL;
-    const opts = { model: options.model || cfg.model, maxTokens: options.maxTokens, temperature: options.temperature };
+    const baseURL = options.baseURL || cfg.baseURL;
+    const opts = {
+      model: options.model || cfg.model,
+      maxTokens: options.maxTokens,
+      temperature: options.temperature,
+      jsonMode: options.jsonMode,
+    };
 
     switch (cfg.format) {
       case 'openai':

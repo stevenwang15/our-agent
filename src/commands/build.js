@@ -9,10 +9,15 @@
 
 import { loadConf } from '../conf/parser.js';
 import { resolve, basename, dirname } from 'path';
-import { existsSync, mkdirSync, writeFileSync, copyFileSync, readFileSync } from 'fs';
+import { existsSync, mkdirSync, writeFileSync, copyFileSync, readFileSync, readdirSync, rmSync, cpSync } from 'fs';
 import { execSync } from 'child_process';
+import { fileURLToPath } from 'url';
 import { tmpdir } from 'os';
 import { randomBytes } from 'crypto';
+
+// fileURLToPath (not new URL(...).pathname): pathname yields "/C:/..." on
+// Windows, which breaks every path derived from it.
+const HERE = dirname(fileURLToPath(import.meta.url));
 
 const TARGETS = {
   'linux-x64':   { node: 'node18-linux-x64',  ext: '',     type: 'ELF' },
@@ -21,6 +26,75 @@ const TARGETS = {
   'mac-x64':     { node: 'node18-macos-x64',   ext: '',     type: 'Mach-O' },
   'mac-arm64':   { node: 'node18-macos-arm64', ext: '',     type: 'Mach-O' },
 };
+
+// ESM runtime modules converted to CJS for packaging (both pkg and the
+// fallback bundle consume these). The `requires` lines replace the stripped
+// `import` statements — without them the generated modules throw
+// ReferenceError the moment they run.
+const CJS_MODULES = [
+  {
+    out: 'parser.cjs', src: '../conf/parser.js',
+    exports: ['ConfValue', 'ConfDocument', 'parseConf', 'loadConf'],
+    requires: [
+      "const { readFileSync } = require('fs');",
+      "const { dirname, resolve } = require('path');",
+    ],
+  },
+  {
+    out: 'engine.cjs', src: '../runtime/engine.js',
+    exports: ['AgentEngine'],
+    requires: [
+      "const { createInterface } = require('readline/promises');",
+      "const { LLMFactory } = require('./providers.cjs');",
+      "const { ToolRegistry, loadToolFromConf, executeToolCall } = require('./tools.cjs');",
+      "const { saveSession, printSessions } = require('./session.cjs');",
+    ],
+  },
+  {
+    out: 'llm.cjs', src: '../runtime/llm.js',
+    exports: ['LLMClient'],
+    requires: [],
+  },
+  {
+    out: 'tools.cjs', src: '../runtime/tools.js',
+    exports: ['ToolRegistry', 'loadToolFromConf', 'getToolDescriptions', 'executeToolCall'],
+    requires: [
+      "const { readFileSync, readdirSync, statSync, existsSync, writeFileSync } = require('fs');",
+      "const { resolve, relative, sep } = require('path');",
+      "const { execSync } = require('child_process');",
+    ],
+  },
+  {
+    out: 'providers.cjs', src: '../runtime/providers.js',
+    exports: ['LLMFactory'],
+    requires: [],
+  },
+  {
+    out: 'session.cjs', src: '../runtime/session.js',
+    exports: ['saveSession', 'listSessions', 'printSessions', 'loadSession'],
+    requires: [
+      "const { resolve } = require('path');",
+      "const { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync } = require('fs');",
+      "const { homedir } = require('os');",
+    ],
+  },
+  {
+    out: 'variables.cjs', src: '../runtime/variables.js',
+    exports: ['substituteVars', 'substituteConf'],
+    requires: [],
+  },
+];
+
+function toCJS(mod) {
+  const content = readFileSync(resolve(HERE, mod.src), 'utf-8')
+    // Strip `export ` from any top-level declaration: `export class`,
+    // `export function`, and `export async function` all end up as plain
+    // declarations; module.exports below re-exports what the runner needs.
+    .replace(/^export /gm, '')
+    .replace(/import .+ from/g, '');
+  const prelude = mod.requires.length ? `${mod.requires.join('\n')}\n` : '';
+  return `'use strict';\n${prelude}${content}\nmodule.exports = { ${mod.exports.join(', ')} };\n`;
+}
 
 export async function buildCommand(confPath, options) {
   const absPath = resolve(confPath);
@@ -54,10 +128,11 @@ async function buildCLI(confPath, conf, agentName, outputDir, options) {
     process.exit(1);
   }
 
-  // Check if pkg is available
+  // Check if pkg is available (input:'' closes stdin so npx cannot hang on
+  // an interactive install prompt)
   let hasPkg = false;
   try {
-    execSync('npx pkg --version', { stdio: 'pipe' });
+    execSync('npx pkg --version', { stdio: 'pipe', timeout: 60000, input: '' });
     hasPkg = true;
   } catch {
     hasPkg = false;
@@ -77,37 +152,38 @@ async function buildCLI(confPath, conf, agentName, outputDir, options) {
   const runnerCode = `
 #!/usr/bin/env node
 const confData = ${JSON.stringify(confData)};
-const { parseConf } = require('./parser.cjs');
-const conf = parseConf(confData, '${basename(confPath)}');
-
-const apiKey = process.env.OUR_AGENT_KEY || '';
-const baseURL = conf.get('settings', 'base_url', process.env.OUR_AGENT_BASE_URL || 'https://api.openai.com/v1');
-const model = conf.get('settings', 'model', process.env.OUR_AGENT_MODEL || 'gpt-4o');
 
 async function main() {
+  const { parseConf } = require('./parser.cjs');
+  const { substituteConf } = require('./variables.cjs');
   const { AgentEngine } = require('./engine.cjs');
-  
-  if (!apiKey) {
+  const { LLMFactory } = require('./providers.cjs');
+
+  const conf = parseConf(confData, '${basename(confPath).replace(/'/g, "\\'")}');
+  substituteConf(conf);
+
+  // No CLI flags in a built agent: env vars override whatever the .conf says
+  const engine = new AgentEngine(conf, {
+    apiKey: process.env.OUR_AGENT_KEY || '',
+    baseURL: process.env.OUR_AGENT_BASE_URL || undefined,
+    model: process.env.OUR_AGENT_MODEL || undefined,
+  });
+
+  // Keyless providers (e.g. ollama) must not demand a key
+  if (!engine.apiKey && LLMFactory.getProviderConfig(engine.provider).auth !== 'none') {
     const rl = require('readline').createInterface({ input: process.stdin, output: process.stdout });
     const key = await new Promise(res => rl.question('🔑 Enter your API key: ', res));
     rl.close();
     if (!key) { console.error('API key required'); process.exit(1); }
-    process.env.OUR_AGENT_KEY = key;
+    engine.apiKey = key;
   }
-
-  const engine = new AgentEngine(conf, {
-    apiKey: apiKey || process.env.OUR_AGENT_KEY,
-    baseURL,
-    model,
-  });
 
   const args = process.argv.slice(2);
   if (args.length > 0) {
     const input = args.join(' ');
-    let full = '';
-    const onChunk = c => { process.stdout.write(c); full += c; };
-    const { result } = await engine.runPrompt(input, [], onChunk);
-    if (!result) console.log('');
+    const onChunk = c => process.stdout.write(c);
+    await engine.runPrompt(input, [], onChunk);
+    console.log('');
   } else {
     await engine.runInteractive();
   }
@@ -117,31 +193,10 @@ main().catch(e => { console.error('\\n❌', e.message); process.exit(1); });
 
   writeFileSync(resolve(tmpDir, 'runner.js'), runnerCode);
 
-  // Copy dependencies as CJS (pkg doesn't support ESM well)
-  const parserContent = `'use strict';
-${readFileSync(resolve(dirname(new URL(import.meta.url).pathname), '../conf/parser.js'), 'utf-8')
-  .replace(/export class/g, 'class')
-  .replace(/export function/g, 'function')
-  .replace(/import .+ from/g, '')}
-module.exports = { ConfValue, ConfDocument, parseConf, loadConf };
-`;
-  
-  const engineContent = `'use strict';
-${readFileSync(resolve(dirname(new URL(import.meta.url).pathname), '../runtime/engine.js'), 'utf-8')
-  .replace(/export class/g, 'class')
-  .replace(/import .+ from/g, '')}
-module.exports = { AgentEngine };
-`;
-
-  const llmContent = `'use strict';
-${readFileSync(resolve(dirname(new URL(import.meta.url).pathname), '../runtime/llm.js'), 'utf-8')
-  .replace(/export class/g, 'class')}
-module.exports = { LLMClient };
-`;
-
-  writeFileSync(resolve(tmpDir, 'parser.cjs'), parserContent);
-  writeFileSync(resolve(tmpDir, 'engine.cjs'), engineContent);
-  writeFileSync(resolve(tmpDir, 'llm.cjs'), llmContent);
+  // Convert the ESM runtime to CJS (pkg doesn't support ESM well)
+  for (const mod of CJS_MODULES) {
+    writeFileSync(resolve(tmpDir, mod.out), toCJS(mod));
+  }
 
   // Package.json for pkg
   writeFileSync(resolve(tmpDir, 'package.json'), JSON.stringify({
@@ -179,51 +234,20 @@ module.exports = { LLMClient };
       const fallbackDir = resolve(outputDir, fallbackDirName);
       mkdirSync(fallbackDir, { recursive: true });
 
-      // Copy runner, parser, engine, llm, tools, providers, session, variables
-      const depFiles = [
-        ['parser.cjs', 'parser.cjs'],
-        ['engine.cjs', 'engine.cjs'],
-        ['llm.cjs', 'llm.cjs'],
-      ];
-      for (const [src, dst] of depFiles) {
-        copyFileSync(resolve(tmpDir, src), resolve(fallbackDir, dst));
-      }
-
-      // Copy tools, providers, session, variables as CJS
-      const extraModules = ['tools.js', 'providers.js', 'session.js', 'variables.js'];
-      for (const mod of extraModules) {
-        const srcPath = resolve(dirname(new URL(import.meta.url).pathname), `../runtime/${mod}`);
-        if (existsSync(srcPath)) {
-          let content = readFileSync(srcPath, 'utf-8')
-            .replace(/export class/g, 'class')
-            .replace(/export function/g, 'function')
-            .replace(/import .+ from/g, '');
-          // Export all classes/functions
-          const exports = [];
-          if (content.includes('class ToolRegistry')) exports.push('ToolRegistry');
-          if (content.includes('class LLMFactory')) exports.push('LLMFactory');
-          if (content.includes('class LLMClient')) exports.push('LLMClient');
-          if (content.includes('class SessionManager')) exports.push('SessionManager');
-          if (content.includes('function substituteConf')) exports.push('substituteConf');
-          if (content.includes('function loadToolFromConf')) exports.push('loadToolFromConf');
-          if (content.includes('function getToolDescriptions')) exports.push('getToolDescriptions');
-          if (content.includes('function executeToolCall')) exports.push('executeToolCall');
-          if (content.includes('function saveSession')) exports.push('saveSession');
-          if (content.includes('function listSessions')) exports.push('listSessions');
-          if (content.includes('function printSessions')) exports.push('printSessions');
-          if (exports.length > 0) {
-            content += `\nmodule.exports = { ${exports.join(', ')} };\n`;
-          }
-          writeFileSync(resolve(fallbackDir, mod.replace('.js', '.cjs')), `'use strict';\n${content}`);
+      // Copy every generated CJS module alongside the runner
+      for (const file of readdirSync(tmpDir)) {
+        if (file.endsWith('.cjs')) {
+          copyFileSync(resolve(tmpDir, file), resolve(fallbackDir, file));
         }
       }
 
-      // Copy duck-duck-scrape dependency (needed at runtime)
-      const nodeModulesSrc = resolve(dirname(new URL(import.meta.url).pathname), '../../node_modules');
+      // Copy runtime dependencies (duck-duck-scrape + its closure) with fs
+      // instead of `cp -R`, which does not exist on Windows
+      const nodeModulesSrc = resolve(HERE, '../../node_modules');
       const nodeModulesDst = resolve(fallbackDir, 'node_modules');
       if (existsSync(nodeModulesSrc)) {
         try {
-          execSync(`cp -R "${resolve(nodeModulesSrc, 'duck-duck-scrape')}" "${resolve(nodeModulesDst, 'duck-duck-scrape')}" 2>/dev/null; mkdir -p "${resolve(nodeModulesDst, 'undici')}" 2>/dev/null; true`, { stdio: 'pipe' });
+          cpSync(nodeModulesSrc, nodeModulesDst, { recursive: true });
         } catch {}
       }
 
@@ -301,9 +325,9 @@ try {
     }
 
   } finally {
-    // Cleanup
+    // Cleanup (rmSync, not `rm -rf`: no shell, works on Windows)
     try {
-      execSync(`rm -rf "${tmpDir}"`);
+      rmSync(tmpDir, { recursive: true, force: true });
     } catch {}
   }
 }

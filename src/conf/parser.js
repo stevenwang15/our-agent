@@ -306,7 +306,10 @@ export function parseConf(text, filePath = '<string>') {
           continue;
         }
 
-        // Read value until newline or ;
+        // Read value until newline, ";", or a trailing comment.
+        // A "#" or "//" only starts a comment after the value has begun and
+        // ended on whitespace, so values like colors (#22c55e), URLs
+        // (https://example.com) and [tags] (#hashtag) are kept intact.
         while (i < text.length) {
           if (inQuote) {
             valStr += ch;
@@ -319,6 +322,10 @@ export function parseConf(text, filePath = '<string>') {
             next();
           } else if (ch === ';' || ch === '\n') {
             break;
+          } else if (ch === '#' && valStr !== '' && /\s$/.test(valStr)) {
+            break; // trailing "# comment"
+          } else if (ch === '/' && peek() === '/' && valStr !== '' && /\s$/.test(valStr)) {
+            break; // trailing "// comment"
           } else {
             valStr += ch;
             next();

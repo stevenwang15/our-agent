@@ -140,12 +140,12 @@ our-agent export agent.conf -o ./exports
 
 | Provider | Default Model | Auth |
 |----------|--------------|------|
-| `openai` | GPT-4o | Bearer token |
-| `anthropic` | Claude 3.5 Sonnet | `x-api-key` |
-| `google` | Gemini 1.5 Pro | Bearer token |
-| `deepseek` | DeepSeek V3 | Bearer token |
-| `ollama` | llama3 | None (local) |
-| `openrouter` | auto | Bearer token |
+| `openai` | `gpt-4o` | Bearer token |
+| `anthropic` | `claude-3-opus-20240229` | `x-api-key` |
+| `google` | `gemini-1.5-pro` | `x-goog-api-key` header |
+| `deepseek` | `deepseek-chat` | Bearer token |
+| `ollama` | `llama3` | None (local) |
+| `openrouter` | `openai/gpt-4o` | Bearer token |
 
 ## Built-in Tools
 
@@ -204,7 +204,7 @@ our-agent/
 │   ├── conf/parser.js         # .conf parser
 │   ├── runtime/               # Engine, LLM, tools, session
 │   └── commands/              # CLI command implementations
-├── test/                      # node:test suites (parser, variables)
+├── test/                      # node:test suites (parser, variables, providers)
 ├── scripts/lint.mjs           # cross-platform syntax gate
 ├── examples/                  # Sample .conf files
 ├── install.sh / install.ps1   # Install scripts
@@ -220,9 +220,10 @@ npm test           # node:test suites only
 npm run lint       # node --check over bin/, src/, test/
 ```
 
-The tests need no dependencies and no network: they cover the `.conf` parser and
-variable substitution, which sit under every command (`run`, `build`, `lint`,
-`export`). CI runs the same three commands on Node 20 and 22.
+The tests need no dependencies and no network: they cover the `.conf` parser,
+variable substitution, and provider request wiring (base URL override, JSON
+mode, API-key handling), which sit under every command (`run`, `build`,
+`lint`, `export`). CI runs the same three commands on Node 20 and 22.
 
 **Stricter parsing.** The parser used to accept malformed input silently, which
 is the worst failure mode for a config file — you get a wrong agent and no

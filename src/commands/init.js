@@ -19,18 +19,48 @@ export async function initCommand(name, options) {
 
   const rl = createInterface({ input: process.stdin, output: process.stdout });
 
+  // Buffer incoming lines: with piped input all lines can arrive in one chunk
+  // before the next question() attaches its listener — readline would drop
+  // them and the prompt would hang. On EOF (stdin closed) fall back to ''.
+  const buffered = [];
+  let deliver = null;
+  let stdinClosed = false;
+  rl.on('line', (line) => {
+    if (deliver) { const d = deliver; deliver = null; d(line); }
+    else buffered.push(line);
+  });
+  rl.on('close', () => {
+    stdinClosed = true;
+    if (deliver) { const d = deliver; deliver = null; d(''); }
+  });
+
+  async function ask(question) {
+    process.stdout.write(question);
+    if (buffered.length > 0) return buffered.shift();
+    if (stdinClosed) return '';
+    return new Promise((res) => { deliver = res; });
+  }
+
+  async function askChoice(question, choices, defaultChoice) {
+    const labels = choices.map((c, i) => `${i + 1}) ${c}`).join('  ');
+    const answer = await ask(`  ${question} [${defaultChoice}] (${labels}): `);
+    const idx = parseInt(answer, 10);
+    if (Number.isInteger(idx)) return choices[idx - 1] || defaultChoice;
+    return answer || defaultChoice;
+  }
+
   console.log('\n  🛠️  Create a new our-agent\n');
 
   const answers = {
-    name: await rl.question(`  Agent name [${agentName}]: `) || agentName,
-    desc: await rl.question('  Description [A helpful AI assistant]: ') || 'A helpful AI assistant',
-    prompt: await rl.question('  System prompt (one line, or leave blank for template): '),
-    provider: await askChoice(rl, '  LLM provider', ['openai', 'anthropic', 'google', 'deepseek', 'ollama', 'openrouter'], 'openai'),
-    temp: await rl.question('  Temperature [0.7]: ') || '0.7',
-    maxTokens: await rl.question('  Max tokens [4096]: ') || '4096',
-    tools: await askChoice(rl, '  Enable tools?', ['none', 'basic (search, file, time)', 'all'], 'basic'),
-    icon: await rl.question('  Icon/emoji [🤖]: ') || '🤖',
-    style: await askChoice(rl, '  Config style', ['brace {}', 'bracket []'], 'brace'),
+    name: await ask(`  Agent name [${agentName}]: `) || agentName,
+    desc: await ask('  Description [A helpful AI assistant]: ') || 'A helpful AI assistant',
+    prompt: await ask('  System prompt (one line, or leave blank for template): '),
+    provider: await askChoice('  LLM provider', ['openai', 'anthropic', 'google', 'deepseek', 'ollama', 'openrouter'], 'openai'),
+    temp: await ask('  Temperature [0.7]: ') || '0.7',
+    maxTokens: await ask('  Max tokens [4096]: ') || '4096',
+    tools: await askChoice('  Enable tools?', ['none', 'basic (search, file, time)', 'all'], 'basic'),
+    icon: await ask('  Icon/emoji [🤖]: ') || '🤖',
+    style: await askChoice('  Config style', ['brace {}', 'bracket []'], 'brace'),
   };
 
   rl.close();
@@ -132,12 +162,4 @@ theme = "modern"
   console.log(`  📋 ${answers.name} (${answers.provider})`);
   console.log(`  🔧 ${toolList.length > 0 ? toolList.length + ' tools enabled' : 'No tools'}`);
   console.log(`\n  Run it:\n    our-agent run "${filePath}"\n`);
-}
-
-async function askChoice(rl, question, choices, defaultChoice) {
-  const labels = choices.map((c, i) => `${i + 1}) ${c}`).join('  ');
-  const answer = await rl.question(`  ${question} [${defaultChoice}] (${labels}): `);
-  const idx = parseInt(answer);
-  if (idx >= 1 && idx <= choices.length) return choices[idx - 1];
-  return answer || defaultChoice;
 }

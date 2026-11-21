@@ -7,7 +7,7 @@
 import { loadConf } from '../conf/parser.js';
 import { AgentEngine } from '../runtime/engine.js';
 import { substituteConf } from '../runtime/variables.js';
-import { listSessions, loadSession, printSessions } from '../runtime/session.js';
+import { LLMFactory } from '../runtime/providers.js';
 import { resolve } from 'path';
 import { existsSync } from 'fs';
 
@@ -22,29 +22,38 @@ export async function runCommand(confPath, options) {
   const conf = loadConf(absPath);
   substituteConf(conf);
 
-  // Get API key: CLI arg > env var > prompt
-  let apiKey = options.key || process.env.OUR_AGENT_KEY;
-  if (!apiKey && options.interactive !== false) {
+  // Build engine first: the resolved provider decides whether a key is
+  // needed at all (e.g. ollama needs none). Precedence: CLI flag > env > .conf
+  const engine = new AgentEngine(conf, {
+    apiKey: options.key || process.env.OUR_AGENT_KEY,
+    provider: options.provider,
+    baseURL: options.baseUrl || process.env.OUR_AGENT_BASE_URL,
+    model: options.model || process.env.OUR_AGENT_MODEL,
+    jsonMode: options.json,
+  });
+
+  // Get API key: CLI arg > env var > prompt (skipped for keyless providers)
+  const needsKey = LLMFactory.getProviderConfig(engine.provider).auth !== 'none';
+  if (!engine.apiKey && needsKey && options.interactive !== false) {
     const rl = (await import('readline/promises')).createInterface({
       input: process.stdin, output: process.stdout,
     });
-    apiKey = await rl.question('🔑 Enter your API key: ');
-    rl.close();
+    // question() never settles once stdin closes (piped input) — race it
+    // against 'close' so we fall through to the friendly error below
+    let onClose;
+    const closed = new Promise((res) => { onClose = () => res(''); rl.once('close', onClose); });
+    try {
+      engine.apiKey = await Promise.race([rl.question('🔑 Enter your API key: '), closed]);
+    } finally {
+      rl.removeListener('close', onClose);
+      rl.close();
+    }
   }
 
-  if (!apiKey) {
+  if (!engine.apiKey && needsKey) {
     console.error('❌ API key is required. Use --key, OUR_AGENT_KEY env, or run interactively.');
     process.exit(1);
   }
-
-  // Build engine with provider support
-  const engine = new AgentEngine(conf, {
-    apiKey,
-    provider: options.provider,
-    baseURL: options.baseURL,
-    model: options.model,
-    jsonMode: options.json,
-  });
 
   const desc = engine.describe();
   console.log(`\n  🤖 ${desc.name} v${desc.version}`);

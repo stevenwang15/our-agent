@@ -21,7 +21,7 @@ export class AgentEngine {
     this.temperature = this._getSetting('temperature', 0.7);
     this.maxTokens = this._getSetting('max_tokens', 4096);
     this.stream = this._getSetting('stream', true);
-    this.jsonMode = this._getSetting('json_mode', false) || this._getSetting('json', false);
+    this.jsonMode = options.jsonMode ?? (this._getSetting('json_mode', false) || this._getSetting('json', false));
 
     // Tool system
     this.toolRegistry = new ToolRegistry();
@@ -66,14 +66,19 @@ export class AgentEngine {
 
     const messages = [...history];
 
-    if (systemPrompt) {
-      let fullSystem = systemPrompt;
-      if (decorators.beforeReply) fullSystem += `\n\n${decorators.beforeReply}`;
-      if (decorators.afterReply) fullSystem += `\n\n${decorators.afterReply}`;
+    if (systemPrompt || this.jsonMode) {
+      let fullSystem = systemPrompt || '';
+      if (decorators.beforeReply) fullSystem += (fullSystem ? '\n\n' : '') + decorators.beforeReply;
+      if (decorators.afterReply) fullSystem += (fullSystem ? '\n\n' : '') + decorators.afterReply;
 
       // Add tool instructions if tools are enabled
       if (this.toolsEnabled.length > 0) {
-        fullSystem += `\n\nYou have access to the following tools:\n${this.toolsEnabled.map(t => `- ${t}: ${this._getToolDesc(t)}`).join('\n')}\nWhen you need to use a tool, respond with a JSON block: \`\`\`tool\n{"name": "tool_name", "arguments": {...}}\n\`\`\``;
+        fullSystem += (fullSystem ? '\n\n' : '') + `You have access to the following tools:\n${this.toolsEnabled.map(t => `- ${t}: ${this._getToolDesc(t)}`).join('\n')}\nWhen you need to use a tool, respond with a JSON block: \`\`\`tool\n{"name": "tool_name", "arguments": {...}}\n\`\`\``;
+      }
+
+      // OpenAI-style JSON mode requires the word "json" in the messages
+      if (this.jsonMode) {
+        fullSystem += (fullSystem ? '\n\n' : '') + 'Respond with valid JSON only.';
       }
 
       messages.unshift({ role: 'system', content: fullSystem });
@@ -104,6 +109,7 @@ export class AgentEngine {
     const model = this.model || providerConfig.defaultModel;
 
     return await LLMFactory.chat(this.provider, this.apiKey, messages, {
+      baseURL: this.baseURL,
       model,
       maxTokens: this.maxTokens,
       temperature: this.temperature,
@@ -119,48 +125,66 @@ export class AgentEngine {
     let result = text;
 
     while ((match = toolRegex.exec(text)) !== null) {
+      const block = match[0];
+      let toolCall = null;
       try {
-        const toolCall = JSON.parse(match[1].trim());
-        if (toolCall.name && this.toolRegistry.get(toolCall.name)) {
-          const toolResult = await executeToolCall(this.toolRegistry, toolCall);
-          // Replace the tool block with the result
-          result = result.replace(match[0], `\n[Tool: ${toolCall.name}]\n${toolResult}\n[/Tool]\n`);
-        }
+        toolCall = JSON.parse(match[1].trim());
       } catch {
-        // Malformed tool call, leave as-is
+        // Malformed JSON — handled below
+      }
+
+      if (toolCall && toolCall.name && this.toolRegistry.get(toolCall.name)) {
+        const toolResult = await executeToolCall(this.toolRegistry, toolCall);
+        // Replace the tool block with the result (executeToolCall returns
+        // { role, content, ... } — use .content, not the object itself)
+        result = result.replace(block, `\n[Tool: ${toolCall.name}]\n${toolResult.content}\n[/Tool]\n`);
+      } else if (toolCall && toolCall.name) {
+        // Never leave raw ```tool JSON visible to the user
+        result = result.replace(block, `[Tool error: unknown tool "${toolCall.name}"]`);
+      } else {
+        result = result.replace(block, '[Tool error: malformed tool call]');
       }
     }
 
     return result;
   }
 
+  // Providers with auth: 'none' (e.g. ollama) never require a key
+  _needsApiKey() {
+    return LLMFactory.getProviderConfig(this.provider).auth !== 'none';
+  }
+
   // ---- Run a single prompt ----
   async runPrompt(userInput, history = [], onChunk = null) {
-    if (!this.apiKey) throw new Error('API key required. Use --key or OUR_AGENT_KEY env.');
+    if (!this.apiKey && this._needsApiKey()) {
+      throw new Error('API key required. Use --key or OUR_AGENT_KEY env.');
+    }
 
     const { messages } = this._buildMessages(userInput, history);
 
-    let fullResult = '';
-    const wrappedChunk = onChunk ? (chunk) => {
-      fullResult += chunk;
-      onChunk(chunk);
-    } : null;
+    // Tool blocks are rewritten after the fact, so stream only when there is
+    // nothing to rewrite — otherwise raw ```tool JSON hits the terminal.
+    const streamable = this.toolsEnabled.length === 0;
 
-    if (!onChunk) {
-      fullResult = await this._callLLM(messages, null);
+    let fullResult;
+    if (onChunk && streamable) {
+      fullResult = await this._callLLM(messages, onChunk);
     } else {
-      await this._callLLM(messages, wrappedChunk);
+      fullResult = await this._callLLM(messages, null);
     }
 
     // Process tool calls in result
     fullResult = await this._processToolCalls(fullResult);
+
+    // Deliver the rewritten text when it could not be streamed chunk by chunk
+    if (onChunk && !streamable) onChunk(fullResult);
 
     return { result: fullResult };
   }
 
   // ---- Interactive REPL ----
   async runInteractive() {
-    if (!this.apiKey) throw new Error('API key required.');
+    if (!this.apiKey && this._needsApiKey()) throw new Error('API key required.');
 
     const name = this.conf.get('agent', 'name', 'Agent');
     const welcome = this._getPrompt('welcome', `Hello! I am ${name}, how can I help you?`);
@@ -185,9 +209,14 @@ export class AgentEngine {
     this.messages = [];
     const rl = createInterface({ input: process.stdin, output: process.stdout });
 
+    // question() never settles once stdin closes; resolve to null so a piped
+    // stdin exits the loop cleanly instead of hanging the process
+    const stdinClosed = new Promise((res) => rl.once('close', () => res(null)));
+
     try {
       while (true) {
-        const input = await rl.question('  You > ');
+        const input = await Promise.race([rl.question('  You > '), stdinClosed]);
+        if (input === null) break;
         if (!input.trim()) continue;
 
         const cmd = input.toLowerCase().trim();
@@ -224,16 +253,15 @@ export class AgentEngine {
 
         const { messages } = this._buildMessages(input, history);
 
+        // Stream only when there is no tool block to rewrite afterwards
+        const streamable = this.toolsEnabled.length === 0;
         process.stdout.write('  AI > ');
-        let full = '';
-        const onChunk = (chunk) => {
-          process.stdout.write(chunk);
-          full += chunk;
-        };
+        const onChunk = streamable ? (chunk) => process.stdout.write(chunk) : null;
 
         try {
-          await this._callLLM(messages, onChunk);
+          let full = await this._callLLM(messages, onChunk);
           full = await this._processToolCalls(full);
+          if (!onChunk) process.stdout.write(full);
 
           console.log('\n');
           history.push({ role: 'user', content: input });

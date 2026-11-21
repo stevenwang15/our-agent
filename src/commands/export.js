@@ -34,6 +34,11 @@ export async function exportCommand(confPath, options) {
 
   const conf = loadConf(absPath);
   const format = options.format || 'all';
+  const validFormats = ['skill', 'mcp', 'all'];
+  if (!validFormats.includes(format)) {
+    console.error(`❌ Unknown format: ${format}. Use one of: ${validFormats.join(', ')}`);
+    process.exit(1);
+  }
   const outputDir = resolve(options.output || '.');
 
   if (!existsSync(outputDir)) {
@@ -167,8 +172,10 @@ async function exportMCP(agentName, agentDesc, systemPrompt, conf, outputDir) {
 
   const serverScript = `#!/usr/bin/env node
 // our-agent MCP Server for "${agentName}"
+// CommonJS on purpose: the exported .js file must run regardless of the
+// nearest package.json "type" field (ESM syntax only works with type:module).
 
-import { createInterface } from 'readline';
+const { createInterface } = require('readline');
 
 const SYSTEM_PROMPT = ${JSON.stringify(systemPrompt)};
 const API_KEY = process.env.OUR_AGENT_KEY || '';
